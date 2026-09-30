@@ -60,6 +60,9 @@ input[type=range]{accent-color:var(--accent);padding:0;flex:1}
 .empty{padding:30px;text-align:center;opacity:.6;border:2px dashed var(--line);border-radius:8px}
 .busy{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px}
 .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+.prog{padding:0 8px 10px}
+.prog .track{height:6px;border-radius:3px;background:rgba(23,18,82,.12);overflow:hidden;margin-bottom:4px}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width 1s linear}
 @keyframes s{to{transform:rotate(360deg)}}
 .up{color:var(--up)}.down{color:var(--down)}
 /* 설정 */
