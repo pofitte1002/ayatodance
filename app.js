@@ -18,8 +18,15 @@ async function http(url,body,headers={}){
   try{ r=await fetch(url,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...headers},body:body?JSON.stringify(body):undefined}) }
   catch(e){ throw Object.assign(new Error('네트워크 오류: '+e.message),{net:true}) }
   const t=await r.text();
-  if(!r.ok){let m=t.slice(0,500);try{m=JSON.parse(t).error.message}catch{} throw Object.assign(new Error(`HTTP ${r.status}: ${m}`),{status:r.status})}
+  if(!r.ok){let m=t.slice(0,500),code='';try{const e=JSON.parse(t).error;m=e.message||m;code=e.code||e.status||''}catch{}
+    throw Object.assign(new Error(explain(code,m)||`HTTP ${r.status}: ${code?code+' · ':''}${m}`),{status:r.status})}
   return JSON.parse(t);
+}
+// 콘텐츠 검수(저작권·유명 IP·실존 인물 등) 거절은 앱 버그가 아니라 제공사 서버 판정 → 알아보기 쉽게 풀어서 보여줌
+function explain(code,msg){
+  const s=`${code} ${msg}`;
+  if(!/Sensitive|Copyright|저작권|RiskDetected|PolicyViolation|usage guidelines|safety|RaiMediaFiltered/i.test(s)) return '';
+  return `제공사 콘텐츠 검수에 걸려 거절됐어요 (저작권·유명 캐릭터·실존 인물·민감 요소 등). 앱 오류가 아니라 서버 판정이라 다시 눌러도 같은 결과가 나와요. 직접 만든 오리지널 이미지나 다른 이미지로 시도해 주세요.\n[${code||'원문'}] ${msg}`;
 }
 
 // ---- 모델별 허용값 ----
@@ -134,15 +141,18 @@ async function poll(){
       if(r.tid){
         const x=await http(`${ARK}/${r.tid}`,null,{Authorization:'Bearer '+cfg().ark_key});
         if(x.status==='succeeded'){r.st='ok';r.url=x.content.video_url}
-        else if(['failed','cancelled','expired'].includes(x.status)){r.st='err';r.err=`${x.status}: ${x.error?.message||''}`}
+        else if(['failed','cancelled','expired'].includes(x.status)){r.st='err';r.err=explain(x.error?.code||'',x.error?.message||'')||`${x.status}: ${x.error?.code?x.error.code+' · ':''}${x.error?.message||''}`}
       }else{
         const x=await http(`${GEM}/${r.op}`,null,{'x-goog-api-key':cfg().google_key});
         if(x.done){
-          if(x.error){r.st='err';r.err=x.error.message}
-          else{r.url=x.response.generateVideoResponse.generatedSamples[0].video.uri;r.st='ok'}
+          const g=x.response?.generateVideoResponse, v=g?.generatedSamples?.[0]?.video?.uri;
+          if(x.error){r.st='err';r.err=explain(x.error.status||'',x.error.message)||x.error.message}
+          else if(v){r.url=v;r.st='ok'}
+          else{r.st='err';const why=(g?.raiMediaFilteredReasons||[]).join(' / ');
+               r.err=why?explain('RaiMediaFiltered',why):'영상 없이 끝났어요 (응답이 비어 있음)'}   // 검수로 걸러지면 샘플 없이 done:true로 옴
         }
       }
-    }catch(e){ if(!e.net&&e.status&&e.status<500){r.st='err';r.err=e.message} }   // 일시적 오류는 다음에 다시
+    }catch(e){ if(!e.net&&!(e.status>=500)){r.st='err';r.err=e.message} }   // 일시적 오류(네트워크·5xx)만 다음에 다시
     if(r.st!=='wait'){save();renderRes()}
   }
   polling=false;
