@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ayatodance</title>
+<style>
+@font-face{font-family:DM;src:url(fonts/R.otf);font-weight:400}
+@font-face{font-family:DM;src:url(fonts/B.otf);font-weight:700}
+:root{
+  --bg:#6E7E9B;--panel:#D0DCF4;--text:#171252;--muted:#171252;
+  --line:rgba(23,18,82,.26);--accent:#987AEC;--accent-strong:#171252;
+  --danger:#171252;--up:#8A2540;--down:#14664A;
+  --shadow:0 16px 40px rgba(23,18,82,.18);
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 DM,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--text);padding:20px 24px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{font-size:20px;margin:0;color:var(--panel)}
+h2{font-size:14px;font-weight:700;margin:20px 0 8px}
+.wrap{display:grid;grid-template-columns:minmax(280px,1fr) minmax(280px,1fr) minmax(360px,1.4fr);gap:20px;align-items:start}
+@media(max-width:1100px){.wrap{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.drop{border:2px dashed var(--line);border-radius:8px;height:170px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);overflow:hidden;transition:background .15s;cursor:pointer}
+.drop.is-over{background:#987AEC}
+.drop img{max-width:100%;max-height:100%}
+.row{display:flex;align-items:center;gap:8px;margin:10px 0;flex-wrap:wrap}
+.lbl{width:56px;opacity:.75;flex:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;color:var(--text);padding:5px 11px;cursor:pointer}
+.seg button:hover{background:rgba(152,122,236,.25)}
+.seg button.on{background:var(--accent);color:#fff}
+.seg button:disabled{opacity:.35;cursor:not-allowed;background:none}
+button{font-family:inherit}
+button.go{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:700}
+button.go:hover{background:var(--accent-strong)}
+button.go:disabled{opacity:.5;cursor:wait}
+button.secondary{background:#D0DCF4;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+button.secondary:hover{background:#987AEC;color:#fff}
+button.icon{background:#D0DCF4;border:1px solid var(--line);border-radius:50%;width:38px;height:38px;cursor:pointer;font-size:18px;color:var(--text);box-shadow:var(--shadow)}
+button.icon:hover{background:#987AEC;color:#fff}
+input,select,textarea{background:#D0DCF4;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font-family:inherit;font-size:13px}
+textarea{width:100%;resize:vertical;min-height:54px}
+input[type=range]{accent-color:var(--accent);padding:0;flex:1}
+.note{opacity:.75;font-size:12px}
+.warn{font-weight:700}
+.err{color:var(--up);font-size:12px;white-space:pre-wrap;word-break:break-all}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+.res{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#D0DCF4}
+.vid{position:relative;background:conic-gradient(#c3cfe9 25%,#D0DCF4 0 50%,#c3cfe9 0 75%,#D0DCF4 0) 0 0/14px 14px;display:flex}
+.vid video{width:100%;display:block}
+.vid .ov{position:absolute;pointer-events:none}
+.res .bar{display:flex;gap:6px;align-items:center;padding:6px 8px;flex-wrap:wrap;font-size:12px}
+.res .bar .t{flex:1;font-weight:700}
+.thumb{background:#D0DCF4}
+.empty{padding:30px;text-align:center;opacity:.6;border:2px dashed var(--line);border-radius:8px}
+.busy{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px}
+.spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+.prog{padding:2px 8px 10px}.prog .track{height:8px;border-radius:4px;background:rgba(23,18,82,.14);overflow:hidden;margin-bottom:4px}.prog .track i{display:block;height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .9s linear}
+.up{color:var(--up)}.down{color:var(--down)}
+/* 설정 */
+.modal{position:fixed;inset:0;background:rgba(23,18,82,.45);display:none;align-items:center;justify-content:center;z-index:9}
+.modal.open{display:flex}
+.modal .card{width:min(520px,92vw)}
+.field{margin:14px 0}
+.field label{display:block;font-weight:700;margin-bottom:4px}
+.field .row{margin:4px 0}
+.field input{flex:1}
+.saved{color:var(--down);font-size:12px;font-weight:700}
+</style></head><body>
+<header>
+  <h1>ayatodance</h1>
+  <button class="icon" id="gear" title="설정">⚙</button>
+</header>
+
+<div class="wrap">
+<div class="card">
+  <h2 style="margin-top:0">① 이미지</h2>
+  <div class="drop" id="drop"><div>여기에 <b>Ctrl+V</b> 붙여넣기 · 끌어다 놓기<br>또는 클릭해서 파일 열기</div></div>
+  <input type="file" id="f" accept="image/*" hidden>
+  <div class="note" style="margin-top:6px">첫 프레임 = 끝 프레임으로 같은 이미지를 넣어 반복이 이어지게 해요. 투명 부분은 흰색으로 채워서 보내요.</div>
+  <h2>프롬프트</h2>
+  <textarea id="pr">Static camera, background stays still. Only subtle idle motion like a Live2D character: gentle breathing, occasional eye blinks, hair and accessories swaying softly. Keep the character's design, line art and colors exactly the same.</textarea>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">② 생성</h2>
+  <div class="row"><span class="lbl">모델</span>
+    <div class="seg" data-g="engine"><button data-v="sd25" class="on">Seedance 2.5</button><button data-v="sd15">Seedance 1.5 pro</button><button data-v="veo">Veo 3</button></div></div>
+  <div class="row"><span class="lbl">해상도</span>
+    <div class="seg" data-g="res"><button data-v="480p">480p</button><button data-v="720p" class="on">720p</button><button data-v="1080p">1080p</button></div></div>
+  <div class="row"><span class="lbl">길이</span>
+    <div class="seg" data-g="dur"><button data-v="4">4초</button><button data-v="5" class="on">5초</button><button data-v="6">6초</button><button data-v="8">8초</button><button data-v="10">10초</button></div></div>
+  <div class="row"><span class="lbl">수량</span>
+    <div class="seg" data-g="cnt"><button data-v="1" class="on">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button></div></div>
+  <div class="row"><span class="lbl">화면비</span>
+    <div class="seg" data-g="ratio"><button data-v="adaptive" class="on">원본 비율</button><button data-v="16:9">16:9</button><button data-v="9:16">9:16</button></div></div>
+  <div class="row"><span class="lbl">오디오</span>
+    <div class="seg" data-g="audio"><button data-v="1">켬</button><button data-v="0" class="on">끔</button></div></div>
+  <div class="row"><button class="go" id="bDraft">Draft (480p)</button><button class="go" id="bGen">본 생성</button><span class="note" id="sum"></span></div>
+  <div class="note">Draft로 움직임을 먼저 보고, 마음에 들면 결과 카드의 <b>업스케일</b>을 누르세요. 같은 움직임으로 고화질을 다시 만들어요.</div>
+  <div id="rule" class="note"></div>
+</div>
+
+<div class="card">
+  <div class="row" style="margin-top:0;justify-content:space-between">
+    <h2 style="margin:0">③ 결과</h2>
+    <span><button class="secondary" id="bFolder">결과 폴더 열기</button> <button class="secondary" id="bClear">비우기</button></span>
+  </div>
+  <div class="grid" id="res"><div class="empty" style="grid-column:1/-1">아직 결과가 없어요</div></div>
+
+  <h2>레이아웃 이미지</h2>
+  <div class="row"><button class="secondary" id="bOv">PNG · JPG 열기…</button><input type="file" id="o" accept="image/png,image/jpeg,image/webp" hidden>
+    <span class="note" id="on">없음</span><button class="secondary" id="bOvX" style="display:none">빼기</button></div>
+  <div class="row"><span class="lbl">맞춤</span>
+    <div class="seg" data-g="fit"><button data-v="full" class="on">화면 꽉 채움</button><button data-v="part">부분 배치</button></div></div>
+  <div class="row part"><span class="lbl">위치</span>
+    <div class="seg" data-g="pos"><button data-v="좌상">좌상</button><button data-v="우상">우상</button><button data-v="좌하">좌하</button><button data-v="우하" class="on">우하</button><button data-v="중앙">중앙</button></div></div>
+  <div class="row part"><span class="lbl">크기</span><input type="range" id="sz" min="10" max="90" value="30"><span class="note" id="szn">30%</span></div>
+
+  <h2>webp 설정</h2>
+  <div class="row"><span class="lbl">fps</span>
+    <div class="seg" data-g="fps"><button data-v="12">12</button><button data-v="15" class="on">15</button><button data-v="24">24</button><button data-v="원본">원본</button></div></div>
+  <div class="row"><span class="lbl">품질</span><input type="range" id="q" min="40" max="100" value="80"><span class="note" id="qn">80</span></div>
+  <div class="row"><span class="lbl">반복</span>
+    <div class="seg" data-g="loop"><button data-v="무한" class="on">무한</button><button data-v="1회">1회</button></div></div>
+  <div class="note">각 결과 아래 <b>webp</b> / <b>mp4</b> 버튼으로 저장해요. 해상도·길이는 그대로예요.</div>
+</div>
+</div>
+
+<!-- 설정 -->
+<div class="modal" id="modal"><div class="card">
+  <div class="row" style="justify-content:space-between;margin-top:0"><h2 style="margin:0">설정</h2><button class="secondary" id="bClose">닫기</button></div>
+  <div class="field"><label>BytePlus Ark API 키 <span class="note">(Seedance 2.5 · 1.5 pro)</span></label>
+    <div class="row"><input type="password" id="kArk" autocomplete="off"><button class="secondary" data-clear="ark_key">삭제</button></div>
+    <span id="sArk"></span></div>
+  <div class="field"><label>Google API 키 <span class="note">(Veo 3)</span></label>
+    <div class="row"><input type="password" id="kGoogle" autocomplete="off"><button class="secondary" data-clear="google_key">삭제</button></div>
+    <span id="sGoogle"></span></div>
+  <div class="field"><label>Veo 모델 ID</label>
+    <div class="row"><input type="text" id="veoModel"></div>
+    <span class="note">모델 이름이 바뀌면 여기만 고치면 돼요.</span></div>
+  <div class="row"><button class="go" id="bSave">저장</button><span class="note">키는 이 PC의 Windows 계정으로 암호화해서 저장돼요. 앱을 다시 켜도 유지돼요.</span></div>
+  <div class="note" id="outPath"></div>
+</div></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const st={engine:'sd25',res:'720p',dur:'5',cnt:'1',ratio:'adaptive',audio:'0',fit:'full',pos:'우하',fps:'15',loop:'무한'};
+let img=null, ov=null, results=[];
+const api=()=>window.pywebview.api;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fileUrl=p=>'file:///'+p.replace(/\\/g,'/').split('/').map(encodeURIComponent).join('/').replace('%3A',':');
+
+// 모델별 허용값
+const NAME={sd25:'Seedance 2.5',sd15:'Seedance 1.5 pro',veo:'Veo 3'};
+const RULE={sd25:{res:['480p','720p','1080p'],dur:['4','5','6','8','10'],ratio:['adaptive'],audio:true,draft:true,
+                  txt:'Seedance 2.5 · 첫=끝 프레임 · 원본 비율 고정. Draft 비용은 일반 480p와 같고, 업스케일은 1080p로 나와요.'},
+            sd15:{res:['480p','720p','1080p'],dur:['4','5','6','8','10'],ratio:['adaptive'],audio:true,draft:true,
+                  txt:'Seedance 1.5 pro · 원본 비율 고정. Draft는 일반의 약 60% 비용이지만 끝 프레임이 안 들어가요(루프 안 맞을 수 있음). 업스케일은 위 해상도로.'},
+            veo:{res:['720p','1080p'],dur:['4','6','8'],ratio:['16:9','9:16'],audio:false,draft:false,
+                 txt:'Veo 3 · Draft 없음 · 480p·5초·10초 없음 · 소리는 항상 생성(webp에선 빠져요).'}};
+function setSeg(g,v){st[g]=v;$$(`.seg[data-g="${g}"] button`).forEach(b=>b.classList.toggle('on',b.dataset.v===v))}
+function applyRule(){
+  const r=RULE[st.engine];
+  for(const g of ['res','dur','ratio']){
+    $$(`.seg[data-g="${g}"] button`).forEach(b=>b.disabled=!r[g].includes(b.dataset.v));
+    if(!r[g].includes(st[g])) setSeg(g, g==='dur'? (r.dur.includes('5')?'5':'6') : r[g][g==='res'?0:0]);
+  }
+  $$('.seg[data-g="audio"] button').forEach(b=>b.disabled=!r.audio);
+  $('#rule').textContent=r.txt;
+  $('#bDraft').disabled=!r.draft;
+}
+function draw(){
+  applyRule();
+  const part=st.fit==='part';
+  $$('.part').forEach(e=>e.style.display=part?'flex':'none');
+  $('#szn').textContent=$('#sz').value+'%'; $('#qn').textContent=$('#q').value;
+  $('#sum').textContent=`${st.res} · ${st.dur}초 · ${st.cnt}개`;
+  const P={좌상:"top:6%;left:5%",우상:"top:6%;right:5%",좌하:"bottom:6%;left:5%",우하:"bottom:6%;right:5%",중앙:"top:50%;left:50%;transform:translate(-50%,-50%)"};
+  const ovs=part?`${P[st.pos]};width:${$('#sz').value}%`:'top:0;left:0;width:100%;height:100%;object-fit:contain';
+  $$('.vid .ov').forEach(e=>e.remove());
+  if(ov) $$('.vid').forEach(v=>v.insertAdjacentHTML('beforeend',`<img class="ov" src="${ov}" style="${ovs}">`));
+}
+$$('.seg').forEach(g=>g.onclick=e=>{const b=e.target.closest('button');if(!b||b.disabled)return;setSeg(g.dataset.g,b.dataset.v);draw();});
+$('#sz').oninput=draw;$('#q').oninput=draw;
+
+// 이미지 입력: 투명 → 흰 배경으로 합쳐서 PNG dataURL
+function loadImg(file,cb){if(!file||!file.type.startsWith('image/'))return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)}
+function flatten(url){return new Promise(res=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=i.naturalWidth;c.height=i.naturalHeight;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0);res(c.toDataURL('image/png'))};i.src=url})}
+function setImg(file){loadImg(file,async u=>{img=await flatten(u);$('#drop').innerHTML=`<img src="${img}">`})}
+const d=$('#drop');
+d.onclick=()=>$('#f').click();
+$('#f').onchange=e=>setImg(e.target.files[0]);
+d.ondragover=e=>{e.preventDefault();d.classList.add('is-over')};
+d.ondragleave=()=>d.classList.remove('is-over');
+d.ondrop=e=>{e.preventDefault();d.classList.remove('is-over');setImg(e.dataTransfer.files[0])};
+document.addEventListener('paste',e=>{if(e.target.matches('input,textarea'))return;for(const i of e.clipboardData.items)if(i.type.startsWith('image/'))setImg(i.getAsFile())});
+
+// 레이아웃
+$('#bOv').onclick=()=>$('#o').click();
+$('#o').onchange=e=>{const f=e.target.files[0];loadImg(f,u=>{ov=u;$('#on').textContent=f.name;$('#bOvX').style.display='';draw()});e.target.value=''};
+$('#bOvX').onclick=()=>{ov=null;$('#on').textContent='없음';$('#bOvX').style.display='none';draw()};
+
+// 생성
+// r: {id,label,meta,eng,draft,st:'wait'|'ok'|'err',path?,tid?,err?,t}
+const newId=()=>Math.random().toString(36).slice(2,10);
+const settle=(cards,out)=>cards.forEach((c,i)=>{
+  const r=out[i]||{ok:false,err:'결과가 비어 있어요'};
+  const k=results.indexOf(c); if(k<0)return;
+  results[k]={...c,st:r.ok?'ok':'err',path:r.path,tid:r.tid,err:r.err};
+});
+async function run(draft){
+  if(!img){alert('이미지를 먼저 넣어주세요.');return}
+  const eng=st.engine;
+  const o={img,prompt:$('#pr').value.trim(),engine:eng,draft,res:st.res,dur:+st.dur,cnt:+st.cnt,audio:st.audio==='1',ratio:st.ratio};
+  const base={eng,draft,label:NAME[eng]+(draft?' Draft':''),meta:`${draft?'480p':o.res} · ${o.dur}초`};
+  const cards=Array.from({length:o.cnt},()=>({id:newId(),st:'wait',t:Date.now(),...base}));
+  results.unshift(...cards);renderRes();
+  try{ settle(cards,await api().generate(o)) }
+  catch(e){ settle(cards,cards.map(()=>({ok:false,err:String(e.message||e)}))) }
+  renderRes();
+}
+$('#bDraft').onclick=()=>run(true);
+$('#bGen').onclick=()=>run(false);
+// Draft → 같은 모델로 고화질 재생성 (2.5는 1080p 고정, 1.5는 선택 해상도, 480p면 720p)
+const upRes=r=>r.eng==='sd25'?'1080p':(st.res==='480p'?'720p':st.res);
+async function upscale(r){
+  const res=upRes(r);
+  const c={id:newId(),st:'wait',t:Date.now(),eng:r.eng,draft:false,label:NAME[r.eng]+' 업스케일',meta:`${res} · ${r.meta.split(' · ')[1]}`};
+  results.unshift(c);renderRes();
+  try{ settle([c],[{ok:true,path:await api().upscale(r.eng,r.tid,res,r.path)}]) }
+  catch(e){ settle([c],[{ok:false,err:String(e.message||e)}]) }
+  renderRes();
+}
+
+// ---- 진행률: API가 %를 안 알려줘서, 해상도·길이로 잡은 예상 시간 대비 경과로 추정 ----
+// ponytail: 예상 시간은 대략값. 넘기면 90%부터 천천히 99%까지만 오르고, 완료되면 카드가 영상으로 바뀜
+function expect(r){
+  const [res,dur]=r.meta.split(' · '), sec=parseInt(dur)||5, k={'480p':1,'720p':1.8,'1080p':3}[res]||1.8;
+  return (r.eng==='veo'?60+15*sec:25+9*sec*k)*1000;
+}
+function pct(r){const t=Date.now()-r.t,T=expect(r);return t<T?90*t/T:90+9*(1-Math.exp(-(t-T)/T))}
+function tick(){
+  for(const r of results) if(r.st==='wait'){
+    const e=document.getElementById('p'+r.id); if(!e)continue;
+    const p=Math.floor(pct(r)), m=Math.floor((Date.now()-r.t)/1000);
+    e.querySelector('i').style.width=p+'%';
+    e.querySelector('span').textContent=`${p}% (예상) · ${Math.floor(m/60)}:${String(m%60).padStart(2,'0')} 경과`;
+  }
+}
+setInterval(tick,1000);
+
+function renderRes(){
+  if(!results.length){$('#res').innerHTML='<div class="empty" style="grid-column:1/-1">아직 결과가 없어요</div>';return}
+  $('#res').innerHTML=results.map((r,i)=>
+    r.st==='wait'?`<div class="res"><div class="bar"><span class="t">${esc(r.label)}</span><span class="note">${esc(r.meta)}</span></div>
+      <div class="busy" style="padding:0 8px 4px"><div class="spin"></div>생성 중… 창을 닫지 마세요.</div>
+      <div class="prog" id="p${r.id}"><div class="track"><i></i></div><span class="note"></span></div></div>`:
+    r.st==='err'?`<div class="res"><div class="bar"><span class="t">${esc(r.label)} 실패</span><button class="secondary" data-del="${i}">✕</button></div><div class="bar err">${esc(r.err)}</div></div>`:
+   `<div class="res"><div class="vid"><video src="${fileUrl(r.path)}" autoplay loop muted playsinline></video></div>
+     <div class="bar"><span class="t">${esc(r.label)}</span><span class="note">${esc(r.meta)}</span></div>
+     <div class="bar">
+       ${r.draft&&r.tid?`<button class="go" data-up="${i}" title="같은 움직임으로 ${upRes(r)} 재생성">업스케일 ${upRes(r)}</button>`:''}
+       <button class="secondary" data-x="webp" data-i="${i}">webp</button><button class="secondary" data-x="mp4" data-i="${i}">mp4</button></div>
+     <div class="bar note" id="x${i}"></div></div>`).join('');
+  draw();tick();
+}
+$('#res').onclick=async e=>{
+  const d=e.target.closest('button[data-del]');if(d){results.splice(+d.dataset.del,1);renderRes();return}
+  const b=e.target.closest('button[data-x]');if(!b)return;
+  const r=results[+b.dataset.i], box=$('#x'+b.dataset.i);
+  box.innerHTML='<div class="spin"></div>&nbsp;변환 중…';
+  try{
+    const x=await api().export(r.path,ov,st.fit,st.pos,+$('#sz').value,b.dataset.x,st.fps,+$('#q').value,st.loop);
+    box.innerHTML=`저장됨 · ${x.mb}MB <button class="secondary" data-open="${esc(x.path)}">위치 보기</button>`;
+  }catch(err){box.innerHTML=`<span class="err">${esc(err.message||err)}</span>`}
+};
+$('#res').addEventListener('click',e=>{const b=e.target.closest('button[data-open]');if(b)api().open_folder(b.dataset.open)});
+$('#res').addEventListener('click',e=>{const b=e.target.closest('button[data-up]');if(!b)return;b.disabled=true;b.textContent='업스케일 중…';upscale(results[+b.dataset.up])});
+$('#bFolder').onclick=()=>api().open_folder();
+$('#bClear').onclick=()=>{results=[];renderRes()};
+
+// 설정
+function showSettings(s){
+  const dots='●'.repeat(16);
+  $('#kArk').value='';$('#kGoogle').value='';
+  $('#kArk').placeholder=s.ark?dots:'키를 붙여넣으세요';
+  $('#kGoogle').placeholder=s.google?dots:'아직 없음 — 나중에 넣어도 돼요';
+  $('#sArk').innerHTML=s.ark?'<span class="saved">저장됨</span>':'';
+  $('#sGoogle').innerHTML=s.google?'<span class="saved">저장됨</span>':'';
+  $('#veoModel').value=s.veo_model;
+  $('#outPath').textContent='결과 저장 위치: '+s.out;
+}
+let clear=[];
+$('#gear').onclick=async()=>{clear=[];showSettings(await api().get_settings());$('#modal').classList.add('open')};
+$('#bClose').onclick=()=>$('#modal').classList.remove('open');
+$$('[data-clear]').forEach(b=>b.onclick=()=>{clear.push(b.dataset.clear);const i=b.previousElementSibling;i.value='';i.placeholder='저장 누르면 삭제돼요';});
+$('#bSave').onclick=async()=>{
+  const s=await api().save_settings($('#kArk').value,$('#kGoogle').value,$('#veoModel').value,clear);
+  clear=[];showSettings(s);
+};
+
+window.addEventListener('pywebviewready',async()=>{const s=await api().get_settings();if(!s.ark)$('#gear').click()});
+draw();
+</script></body></html>

@@ -1,0 +1,8 @@
+# 빌드 결과·실행 파일은 커밋하지 않음 (exe는 GitHub Releases에)
+*.exe
+dist/
+build/
+__pycache__/
+*.spec
+# 생성된 영상·최종본
+output/
