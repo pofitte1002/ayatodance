@@ -21,9 +21,13 @@
 ```powershell
 pip install pywebview pyinstaller pillow
 winget install Gyan.FFmpeg          # 변환용
-.\desktop\build.ps1                 # → desktop\dist\ayatodance.exe
+.\desktop\build.ps1                 # → desktop\dist\ayatodance.exe, ayatodance-stat.exe
 .\desktop\build.ps1 -Out "C:\원하는\폴더"
+.\desktop\build.ps1 -Apps ayatodance-stat   # 스탯창만
 ```
+
+`ayatodance-stat.exe` = Seedance 2.5 패키지 스탯창만 화면 오른쪽 위에 항상 위로 띄우는 작은 창(끌어서 이동, ✕로 닫기).
+값은 본 앱 ⚙ 설정의 패키지 입력과 본 앱이 영상 만들 때 차감한 값을 그대로 읽는다(5초마다 갱신).
 
 결과 영상과 최종본은 exe 옆 `output\` 폴더에 저장된다.
 

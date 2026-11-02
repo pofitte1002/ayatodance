@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ayatodance-stat</title>
+<style>
+@font-face{font-family:DM;src:url(fonts/R.otf);font-weight:400}
+@font-face{font-family:DM;src:url(fonts/B.otf);font-weight:700}
+:root{--bg:#6E7E9B;--panel:#D0DCF4;--text:#171252;--line:rgba(23,18,82,.26);--accent:#987AEC;--up:#8A2540}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;user-select:none}
+body{font:12px/1.5 DM,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--text);padding:6px}
+/* 본 앱 스탯창과 같은 모양 */
+.pack{position:relative;height:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 30px 8px 12px}
+.pack .hd,.pack .ft{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+.pack .hd{font-weight:700;letter-spacing:.04em}
+.pack .ft{opacity:.8}
+.pack .hp{height:10px;border-radius:5px;background:rgba(23,18,82,.14);overflow:hidden;margin:5px 0}
+.pack .hp i{display:block;height:100%;background:var(--accent)}
+.pack .hp.low i{background:var(--up)}
+.note{opacity:.75}
+#x{position:absolute;top:5px;right:6px;width:20px;height:20px;border:0;border-radius:50%;background:none;color:var(--text);font:inherit;cursor:pointer;opacity:.6}
+#x:hover{background:var(--accent);color:#fff;opacity:1}
+</style></head><body>
+<div class="pack"><div id="pack"></div><button id="x" title="닫기">✕</button></div>
+<script>
+const $=s=>document.querySelector(s);
+// 편수 추정: 토큰 ≈ 가로×세로×24fps×초/1024 (16:9 기준 대략값), 5초 기준
+const PX={'720p':1280*720,'1080p':1920*1080};
+const per=r=>PX[r]*24*5/1024/1000;
+const kfmt=n=>n.toLocaleString('ko-KR',{maximumFractionDigits:1});
+function drawPack(p){
+  const e=$('#pack');
+  if(p.pack_left==null){e.innerHTML='<b>SEEDANCE 2.5 PACK</b><br><span class="note">ayatodance 앱 ⚙ 설정에서 패키지를 넣어주세요</span>';return}
+  const tot=p.pack_total||p.pack_left, pc=Math.min(100,p.pack_left/tot*100);
+  const days=p.pack_exp?Math.ceil((new Date(p.pack_exp+'T23:59:59')-Date.now())/864e5):null;
+  e.innerHTML=`<div class="hd"><span>SEEDANCE 2.5 PACK</span><span>${kfmt(p.pack_left)}K / ${kfmt(tot)}K · ${Math.floor(pc)}%</span></div>
+    <div class="hp${pc<20?' low':''}"><i style="width:${pc}%"></i></div>
+    <div class="ft"><span>${days==null?'만료일 없음':days<0?'만료됨':`만료 ${p.pack_exp} · D-${days}`}</span>
+    <span>5초 720p ${Math.floor(p.pack_left/per('720p'))}편 · 1080p ${Math.floor(p.pack_left/per('1080p'))}편</span></div>`;
+}
+// 본 앱이 영상 만들 때마다 config.json이 바뀌니 주기적으로 다시 읽음
+const refresh=async()=>drawPack(await window.pywebview.api.pack());
+window.addEventListener('pywebviewready',()=>{refresh();setInterval(refresh,5000)});
+$('#x').onclick=()=>window.pywebview.api.close();
+</script></body></html>
