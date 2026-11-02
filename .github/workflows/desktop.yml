@@ -1,0 +1,25 @@
+# desktop/ 이 바뀌어 main에 올라오면 exe를 빌드해 릴리스로 올림 → PC 앱 설정의 '업데이트 확인'이 이걸 봄
+name: desktop exe
+on:
+  push:
+    branches: [main]
+    paths: ["desktop/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pywebview pyinstaller pillow
+      - run: .\desktop\build.ps1 -Out dist
+        shell: pwsh
+      - run: gh release create "b${{ github.run_number }}" dist/ayatodance.exe dist/ayatodance-stat.exe --target "${{ github.sha }}" --title "ayatodance b${{ github.run_number }}" --notes "$env:MSG"
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MSG: ${{ github.event.head_commit.message }}

@@ -154,6 +154,9 @@ input[type=range]{accent-color:var(--accent);padding:0;flex:1}
     <span class="note">BytePlus 콘솔 → Billing center → Resource package 값을 넣으세요. 이후엔 앱에서 만든 Seedance 2.5 영상만큼 자동으로 줄어요. 다른 곳에서 쓰면 다시 맞춰주세요.</span></div>
   <div class="row"><button class="go" id="bSave">저장</button><span class="note">키는 이 PC의 Windows 계정으로 암호화해서 저장돼요. 앱을 다시 켜도 유지돼요.</span></div>
   <div class="note" id="outPath"></div>
+  <div class="field"><label>앱 업데이트 <span class="note" id="ver"></span></label>
+    <div class="row"><button class="secondary" id="bChk">업데이트 확인</button><button class="go" id="bUpd" style="display:none">업데이트하기</button></div>
+    <div class="note" id="updMsg"></div></div>
 </div></div>
 
 <script>
@@ -322,6 +325,7 @@ function showSettings(s){
   $('#sGoogle').innerHTML=s.google?'<span class="saved">저장됨</span>':'';
   $('#veoModel').value=s.veo_model;
   $('#outPath').textContent='결과 저장 위치: '+s.out;
+  $('#ver').textContent='(지금 '+s.version+')';
   pack=s.pack;drawPack();
   $('#pTot').value=pack.pack_total??'';$('#pLeft').value=pack.pack_left??'';$('#pExp').value=pack.pack_exp||'';
 }
@@ -334,6 +338,22 @@ $('#bSave').onclick=async()=>{
   const s=await api().save_settings($('#kArk').value,$('#kGoogle').value,$('#veoModel').value,clear,
     {pack_total:num($('#pTot').value),pack_left:num($('#pLeft').value),pack_exp:$('#pExp').value});
   clear=[];showSettings(s);
+};
+
+// 업데이트: 확인 → 새 버전 있을 때만 '업데이트하기' (자동 아님)
+$('#bChk').onclick=async()=>{
+  $('#bUpd').style.display='none';$('#updMsg').textContent='확인 중…';
+  try{
+    const u=await api().check_update();
+    $('#updMsg').innerHTML=u.update?`<b>새 버전 ${esc(u.tag)}</b> (${esc(u.date)})<br>${u.notes.map(n=>'· '+esc(n)).join('<br>')}`:'최신 버전이에요.';
+    $('#bUpd').style.display=u.update?'':'none';
+  }catch(e){$('#updMsg').innerHTML=`<span class="err">${esc(e.message||e)}</span>`}
+};
+$('#bUpd').onclick=async()=>{
+  if(!confirm('새 버전을 받고 앱을 다시 켤까요?\n생성 중인 영상이 있으면 끝난 뒤에 하세요.'))return;
+  $('#bUpd').disabled=true;$('#updMsg').textContent='받는 중… 끝나면 앱이 다시 켜져요.';
+  try{await api().do_update()}
+  catch(e){$('#bUpd').disabled=false;$('#updMsg').innerHTML=`<span class="err">${esc(e.message||e)}</span>`}
 };
 
 window.addEventListener('pywebviewready',async()=>{const s=await api().get_settings();pack=s.pack;drawPack();if(!s.ark)$('#gear').click()});

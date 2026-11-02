@@ -69,7 +69,15 @@ def spend(model, usage):
 
 # ---- 공용 ----
 # 결과·최종본은 exe(개발 중엔 이 파일) 옆 output 폴더에 저장
-OUT = os.path.join(os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__)), "output")
+APP_DIR = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
+OUT = os.path.join(APP_DIR, "output")
+REPO = "https://api.github.com/repos/pofitte1002/ayatodance"
+EXES = ("ayatodance.exe", "ayatodance-stat.exe")
+try:  # build.ps1이 빌드한 커밋을 넣어 둠
+    with open(os.path.join(BASE, "version.txt"), encoding="ascii") as f:
+        VERSION = f.read().strip()
+except OSError:
+    VERSION = ""  # 개발 실행(python app.py)
 
 class HttpErr(RuntimeError):
     def __init__(self, msg, status=0, net=False):
@@ -210,12 +218,81 @@ def veo_one(key, model, img, prompt, res, dur, ratio, stem):
     raise RuntimeError("30분 초과")
 
 
+# ---- 업데이트: GitHub Releases(Actions가 desktop/ 바뀔 때 빌드)의 커밋이 이 exe보다 앞설 때만 ----
+def latest():
+    """(최신 릴리스, 그 사이 새 커밋 제목들). 새 커밋이 없으면 빈 목록."""
+    if not VERSION:
+        raise RuntimeError("개발 실행(python app.py)이라 업데이트 확인을 못 해요. git pull로 받으세요.")
+    try:
+        r = http(f"{REPO}/releases/latest")
+    except HttpErr as e:
+        if e.status == 404:
+            raise RuntimeError("아직 GitHub에 올라온 exe 릴리스가 없어요.")
+        raise
+    if r["target_commitish"] == VERSION:
+        return r, []
+    try:
+        c = http(f"{REPO}/compare/{VERSION}...{r['target_commitish']}")
+    except HttpErr as e:
+        if e.status == 404:
+            raise RuntimeError("이 exe는 GitHub에 없는 커밋으로 빌드돼서 비교할 수 없어요.")
+        raise
+    if c["status"] != "ahead":  # 같거나 이 exe가 더 새것
+        return r, []
+    return r, [x["commit"]["message"].splitlines()[0] for x in c["commits"]]
+
+def update_exes(r):
+    assets = {a["name"]: a for a in r["assets"]}
+    if EXES[0] not in assets:
+        raise RuntimeError("릴리스에 exe가 없어요. 잠시 뒤 다시 확인해 주세요.")
+    # 본 앱은 항상, 스탯창은 옆에 있을 때만
+    names = [n for n in EXES if n in assets and (n == EXES[0] or os.path.exists(os.path.join(APP_DIR, n)))]
+    # 전부 받아서 크기까지 확인한 뒤에만 교체 → 중간에 끊겨도 기존 exe는 그대로
+    for n in names:
+        p = os.path.join(APP_DIR, n + ".new")
+        download(assets[n]["browser_download_url"], p)
+        if os.path.getsize(p) != assets[n]["size"]:
+            os.remove(p)
+            raise RuntimeError(f"{n} 받기가 중간에 끊겼어요. 다시 눌러주세요.")
+    # 실행 중인 exe도 이름 바꾸기는 됨 → 기존은 .old로 비키고 새 것을 제자리에 (.old는 다음 실행 때 지움)
+    for n in names:
+        p = os.path.join(APP_DIR, n)
+        try: os.remove(p + ".old")
+        except OSError: pass
+        if os.path.exists(p): os.replace(p, p + ".old")
+        os.replace(p + ".new", p)
+    return names
+
+def clean_old():
+    for n in EXES:
+        try: os.remove(os.path.join(APP_DIR, n + ".old"))
+        except OSError: pass
+
+
 # ---- JS에서 부르는 함수들 ----
 class Api:
     def get_settings(self):
         c = load_cfg()
         return {"ark": bool(c.get("ark_key")), "google": bool(c.get("google_key")),
-                "veo_model": c.get("veo_model") or VEO_DEFAULT, "out": OUT, "pack": {k: c.get(k) for k in PACK}}
+                "veo_model": c.get("veo_model") or VEO_DEFAULT, "out": OUT, "pack": {k: c.get(k) for k in PACK},
+                "version": VERSION[:7] or "개발 실행"}
+
+    def check_update(self):
+        r, new = latest()
+        return {"update": bool(new), "tag": r["tag_name"], "date": r["published_at"][:10], "notes": new[-5:]}
+
+    def do_update(self):
+        if not getattr(sys, "frozen", False):
+            raise RuntimeError("exe로 실행할 때만 업데이트할 수 있어요.")
+        r, new = latest()
+        if not new:
+            raise RuntimeError("이미 최신 버전이에요.")
+        names = update_exes(r)
+        # 켜져 있던 스탯창은 새 버전으로 다시 켬
+        if EXES[1] in names and subprocess.run(["taskkill", "/F", "/IM", EXES[1]], capture_output=True, creationflags=NOWIN).returncode == 0:
+            subprocess.Popen([os.path.join(APP_DIR, EXES[1])])
+        subprocess.Popen([os.path.join(APP_DIR, EXES[0])])
+        webview.windows[0].destroy()
 
     def save_settings(self, ark, google, veo_model, clear, pack=None):
         with _cfg_lock:
@@ -306,6 +383,7 @@ class Api:
 
 
 if __name__ == "__main__":
+    clean_old()
     webview.create_window("ayatodance", os.path.join(BASE, "index.html"), js_api=Api(),
                           width=1400, height=980, min_size=(900, 700))
     webview.start()
