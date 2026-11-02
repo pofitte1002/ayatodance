@@ -66,9 +66,19 @@ input[type=range]{accent-color:var(--accent);padding:0;flex:1}
 .field .row{margin:4px 0}
 .field input{flex:1}
 .saved{color:var(--down);font-size:12px;font-weight:700}
+/* 패키지 스탯창 */
+.pack{flex:1;max-width:440px;margin:0 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;box-shadow:var(--shadow);font-size:12px}
+.pack .hd,.pack .ft{display:flex;justify-content:space-between;gap:8px}
+.pack .hd{font-weight:700;letter-spacing:.04em}
+.pack .ft{opacity:.8}
+.pack .hp{height:10px;border-radius:5px;background:rgba(23,18,82,.14);overflow:hidden;margin:5px 0}
+.pack .hp i{display:block;height:100%;background:var(--accent)}
+.pack .hp.low i{background:var(--up)}
+@media(max-width:760px){header{flex-wrap:wrap}.pack{order:3;flex-basis:100%;max-width:none;margin:10px 0 0}}
 </style></head><body>
 <header>
   <h1>ayatodance</h1>
+  <div class="pack" id="pack"></div>
   <button class="icon" id="gear" title="설정">⚙</button>
 </header>
 
@@ -139,6 +149,9 @@ input[type=range]{accent-color:var(--accent);padding:0;flex:1}
   <div class="field"><label>Veo 모델 ID</label>
     <div class="row"><input type="text" id="veoModel"></div>
     <span class="note">모델 이름이 바뀌면 여기만 고치면 돼요.</span></div>
+  <div class="field"><label>Seedance 2.5 패키지 <span class="note">(총량 K · 남은 K · 만료일)</span></label>
+    <div class="row"><input type="number" id="pTot" min="0" step="any" placeholder="총량 K"><input type="number" id="pLeft" min="0" step="any" placeholder="남은 K"><input type="date" id="pExp"></div>
+    <span class="note">BytePlus 콘솔 → Billing center → Resource package 값을 넣으세요. 이후엔 앱에서 만든 Seedance 2.5 영상만큼 자동으로 줄어요. 다른 곳에서 쓰면 다시 맞춰주세요.</span></div>
   <div class="row"><button class="go" id="bSave">저장</button><span class="note">키는 이 PC의 Windows 계정으로 암호화해서 저장돼요. 앱을 다시 켜도 유지돼요.</span></div>
   <div class="note" id="outPath"></div>
 </div></div>
@@ -176,6 +189,7 @@ function draw(){
   $$('.part').forEach(e=>e.style.display=part?'flex':'none');
   $('#szn').textContent=$('#sz').value+'%'; $('#qn').textContent=$('#q').value;
   $('#sum').textContent=`${st.res} · ${st.dur}초 · ${st.cnt}개`;
+  drawPack();
   const P={좌상:"top:6%;left:5%",우상:"top:6%;right:5%",좌하:"bottom:6%;left:5%",우하:"bottom:6%;right:5%",중앙:"top:50%;left:50%;transform:translate(-50%,-50%)"};
   const ovs=part?`${P[st.pos]};width:${$('#sz').value}%`:'top:0;left:0;width:100%;height:100%;object-fit:contain';
   $$('.vid .ov').forEach(e=>e.remove());
@@ -218,7 +232,7 @@ async function run(draft){
   results.unshift(...cards);renderRes();
   try{ settle(cards,await api().generate(o)) }
   catch(e){ settle(cards,cards.map(()=>({ok:false,err:String(e.message||e)}))) }
-  renderRes();
+  renderRes();refreshPack();
 }
 $('#bDraft').onclick=()=>run(true);
 $('#bGen').onclick=()=>run(false);
@@ -230,7 +244,25 @@ async function upscale(r){
   results.unshift(c);renderRes();
   try{ settle([c],[{ok:true,path:await api().upscale(r.eng,r.tid,res,r.path)}]) }
   catch(e){ settle([c],[{ok:false,err:String(e.message||e)}]) }
-  renderRes();
+  renderRes();refreshPack();
+}
+
+// ---- 패키지 스탯창: 잔량 차감은 app.py(spend)에서, 여기선 표시만 ----
+let pack={};
+const refreshPack=async()=>{pack=(await api().get_settings()).pack;drawPack()};
+// 편수 추정: 토큰 ≈ 가로×세로×24fps×초/1024 (16:9 기준 대략값)
+const PX={'480p':854*480,'720p':1280*720,'1080p':1920*1080};
+const kfmt=n=>n.toLocaleString('ko-KR',{maximumFractionDigits:1});
+function drawPack(p=pack){
+  const e=$('#pack');
+  if(p.pack_left==null){e.innerHTML='<span class="note">⚙ 설정에서 Seedance 패키지를 넣으면 남은 토큰이 보여요</span>';return}
+  const tot=p.pack_total||p.pack_left, pc=Math.min(100,p.pack_left/tot*100);
+  const days=p.pack_exp?Math.ceil((new Date(p.pack_exp+'T23:59:59')-Date.now())/864e5):null;
+  const n=Math.floor(p.pack_left/(PX[st.res]*24*st.dur/1024/1000));
+  e.innerHTML=`<div class="hd"><span>SEEDANCE 2.5 PACK</span><span>${kfmt(p.pack_left)}K / ${kfmt(tot)}K · ${Math.floor(pc)}%</span></div>
+    <div class="hp${pc<20?' low':''}"><i style="width:${pc}%"></i></div>
+    <div class="ft"><span>${days==null?'만료일 없음':days<0?'만료됨':`만료 ${p.pack_exp} · D-${days}`}</span>
+    <span>${st.engine==='sd25'?`${st.res}·${st.dur}초 약 ${n}편`:'이 모델은 패키지 미적용'}</span></div>`;
 }
 
 // ---- 진행률: API가 %를 안 알려줘서, 해상도·길이로 잡은 예상 시간 대비 경과로 추정 ----
@@ -290,16 +322,20 @@ function showSettings(s){
   $('#sGoogle').innerHTML=s.google?'<span class="saved">저장됨</span>':'';
   $('#veoModel').value=s.veo_model;
   $('#outPath').textContent='결과 저장 위치: '+s.out;
+  pack=s.pack;drawPack();
+  $('#pTot').value=pack.pack_total??'';$('#pLeft').value=pack.pack_left??'';$('#pExp').value=pack.pack_exp||'';
 }
 let clear=[];
 $('#gear').onclick=async()=>{clear=[];showSettings(await api().get_settings());$('#modal').classList.add('open')};
 $('#bClose').onclick=()=>$('#modal').classList.remove('open');
 $$('[data-clear]').forEach(b=>b.onclick=()=>{clear.push(b.dataset.clear);const i=b.previousElementSibling;i.value='';i.placeholder='저장 누르면 삭제돼요';});
 $('#bSave').onclick=async()=>{
-  const s=await api().save_settings($('#kArk').value,$('#kGoogle').value,$('#veoModel').value,clear);
+  const num=v=>v===''?'':+v;
+  const s=await api().save_settings($('#kArk').value,$('#kGoogle').value,$('#veoModel').value,clear,
+    {pack_total:num($('#pTot').value),pack_left:num($('#pLeft').value),pack_exp:$('#pExp').value});
   clear=[];showSettings(s);
 };
 
-window.addEventListener('pywebviewready',async()=>{const s=await api().get_settings();if(!s.ark)$('#gear').click()});
+window.addEventListener('pywebviewready',async()=>{const s=await api().get_settings();pack=s.pack;drawPack();if(!s.ark)$('#gear').click()});
 draw();
 </script></body></html>

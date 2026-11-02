@@ -72,9 +72,19 @@ input[type=range]{accent-color:var(--accent);padding:0;flex:1}
 .field .row{margin:4px 0}
 .field input{flex:1}
 .saved{color:var(--down);font-size:12px;font-weight:700}
+/* 패키지 스탯창 */
+.pack{flex:1;max-width:440px;margin:0 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;box-shadow:var(--shadow);font-size:12px}
+.pack .hd,.pack .ft{display:flex;justify-content:space-between;gap:8px}
+.pack .hd{font-weight:700;letter-spacing:.04em}
+.pack .ft{opacity:.8}
+.pack .hp{height:10px;border-radius:5px;background:rgba(23,18,82,.14);overflow:hidden;margin:5px 0}
+.pack .hp i{display:block;height:100%;background:var(--accent)}
+.pack .hp.low i{background:var(--up)}
+@media(max-width:760px){header{flex-wrap:wrap}.pack{order:3;flex-basis:100%;max-width:none;margin:10px 0 0}}
 </style></head><body>
 <header>
   <h1>ayatodance</h1>
+  <div class="pack" id="pack"></div>
   <button class="icon" id="gear" title="설정">⚙</button>
 </header>
 
@@ -146,6 +156,9 @@ input[type=range]{accent-color:var(--accent);padding:0;flex:1}
   <div class="field"><label>Veo 모델 ID</label>
     <div class="row"><input type="text" id="veoModel"></div>
     <span class="note">모델 이름이 바뀌면 여기만 고치면 돼요.</span></div>
+  <div class="field"><label>Seedance 2.5 패키지 <span class="note">(총량 K · 남은 K · 만료일)</span></label>
+    <div class="row"><input type="number" id="pTot" min="0" step="any" placeholder="총량 K"><input type="number" id="pLeft" min="0" step="any" placeholder="남은 K"><input type="date" id="pExp"></div>
+    <span class="note">BytePlus 콘솔 → Billing center → Resource package 값을 넣으세요. 이후엔 앱에서 만든 Seedance 2.5 영상만큼 자동으로 줄어요. 다른 곳에서 쓰면 다시 맞춰주세요.</span></div>
   <div class="row"><button class="go" id="bSave">저장</button><span class="note">키는 이 브라우저에만 저장돼요. 다시 열어도 유지되고, 서버로는 BytePlus·Google 외엔 안 보내요. 공용 기기에서는 쓰지 마세요.</span></div>
 </div></div>
 

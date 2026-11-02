@@ -54,6 +54,7 @@ function draw(){
   $$('.part').forEach(e=>e.style.display=part?'flex':'none');
   $('#szn').textContent=$('#sz').value+'%'; $('#qn').textContent=$('#q').value;
   $('#sum').textContent=`${st.res} · ${st.dur}초 · ${st.cnt}개`;
+  drawPack();
   const P={좌상:"top:6%;left:5%",우상:"top:6%;right:5%",좌하:"bottom:6%;left:5%",우하:"bottom:6%;right:5%",중앙:"top:50%;left:50%;transform:translate(-50%,-50%)"};
   const ovs=part?`${P[st.pos]};width:${$('#sz').value}%`:'top:0;left:0;width:100%;height:100%;object-fit:contain';
   $$('.vid .ov').forEach(e=>e.remove());
@@ -140,7 +141,7 @@ async function poll(){
     try{
       if(r.tid){
         const x=await http(`${ARK}/${r.tid}`,null,{Authorization:'Bearer '+cfg().ark_key});
-        if(x.status==='succeeded'){r.st='ok';r.url=x.content.video_url}
+        if(x.status==='succeeded'){r.st='ok';r.url=x.content.video_url;if(r.eng==='sd25')spend(x.usage)}
         else if(x.status==='running'&&!r.run){r.run=Date.now();save()}   // 대기열에서 빠져 실제로 만들기 시작한 시각
         else if(['failed','cancelled','expired'].includes(x.status)){r.st='err';r.err=explain(x.error?.code||'',x.error?.message||'')||`${x.status}: ${x.error?.code?x.error.code+' · ':''}${x.error?.message||''}`}
       }else{
@@ -243,6 +244,28 @@ $('#res').onclick=async e=>{
 };
 $('#bClear').onclick=()=>{if(confirm('결과 목록을 비울까요?')){results=[];save();renderRes()}};
 
+// ---- 패키지 스탯창: 콘솔 잔량을 한 번 넣으면, 앱에서 만든 2.5 영상의 실제 usage만큼 차감 ----
+// ponytail: 잔량은 결제 콘솔(제어 영역) 정보라 API 키로는 못 읽음. 앱 밖에서 쓴 양은 설정에서 다시 맞춰야 함
+function spend(u){
+  const t=u?.total_tokens||u?.completion_tokens, c=cfg();
+  if(!t||c.pack_left==null)return;
+  c.pack_left=Math.max(0,c.pack_left-t/1000); LS.set('cfg',c); drawPack();
+}
+// 편수 추정: 토큰 ≈ 가로×세로×24fps×초/1024 (16:9 기준 대략값)
+const PX={'480p':854*480,'720p':1280*720,'1080p':1920*1080};
+const kfmt=n=>n.toLocaleString('ko-KR',{maximumFractionDigits:1});
+function drawPack(p=cfg()){
+  const e=$('#pack');
+  if(p.pack_left==null){e.innerHTML='<span class="note">⚙ 설정에서 Seedance 패키지를 넣으면 남은 토큰이 보여요</span>';return}
+  const tot=p.pack_total||p.pack_left, pc=Math.min(100,p.pack_left/tot*100);
+  const days=p.pack_exp?Math.ceil((new Date(p.pack_exp+'T23:59:59')-Date.now())/864e5):null;
+  const n=Math.floor(p.pack_left/(PX[st.res]*24*st.dur/1024/1000));
+  e.innerHTML=`<div class="hd"><span>SEEDANCE 2.5 PACK</span><span>${kfmt(p.pack_left)}K / ${kfmt(tot)}K · ${Math.floor(pc)}%</span></div>
+    <div class="hp${pc<20?' low':''}"><i style="width:${pc}%"></i></div>
+    <div class="ft"><span>${days==null?'만료일 없음':days<0?'만료됨':`만료 ${p.pack_exp} · D-${days}`}</span>
+    <span>${st.engine==='sd25'?`${st.res}·${st.dur}초 약 ${n}편`:'이 모델은 패키지 미적용'}</span></div>`;
+}
+
 // ---- 설정 ----
 function showSettings(){
   const c=cfg(), dots='●'.repeat(16);
@@ -252,6 +275,7 @@ function showSettings(){
   $('#sArk').innerHTML=c.ark_key?'<span class="saved">저장됨</span>':'';
   $('#sGoogle').innerHTML=c.google_key?'<span class="saved">저장됨</span>':'';
   $('#veoModel').value=c.veo_model||VEO_DEFAULT;
+  $('#pTot').value=c.pack_total??'';$('#pLeft').value=c.pack_left??'';$('#pExp').value=c.pack_exp||'';
 }
 let clear=[];
 $('#gear').onclick=()=>{clear=[];showSettings();$('#modal').classList.add('open')};
@@ -263,7 +287,9 @@ $('#bSave').onclick=()=>{
   if($('#kGoogle').value.trim()) c.google_key=$('#kGoogle').value.trim();
   clear.forEach(k=>delete c[k]); clear=[];
   c.veo_model=$('#veoModel').value.trim()||VEO_DEFAULT;
-  LS.set('cfg',c); showSettings();
+  for(const [k,id] of [['pack_total','#pTot'],['pack_left','#pLeft']]){const v=$(id).value;if(v==='')delete c[k];else c[k]=+v}
+  if($('#pExp').value)c.pack_exp=$('#pExp').value;else delete c.pack_exp;
+  LS.set('cfg',c); showSettings(); drawPack();
 };
 
 draw();renderRes();

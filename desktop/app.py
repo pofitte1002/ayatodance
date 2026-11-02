@@ -1,4 +1,4 @@
-import base64, ctypes, ctypes.wintypes as wt, glob, json, os, re, shutil, subprocess, sys, tempfile, time, urllib.request
+import base64, ctypes, ctypes.wintypes as wt, glob, json, os, re, shutil, subprocess, sys, tempfile, threading, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 import webview
 
@@ -49,6 +49,22 @@ def save_cfg(c):
             out[k] = base64.b64encode(_dpapi(out[k].encode(), True)).decode()
     with open(CFG, "w", encoding="utf-8") as f:
         json.dump(out, f)
+
+PACK = ("pack_total", "pack_left", "pack_exp")
+_cfg_lock = threading.Lock()  # 동시 생성(최대 4개)이 설정 파일을 같이 고쳐 쓰지 않게
+
+# 패키지 잔량: 콘솔 값을 한 번 넣으면, 앱에서 만든 2.5 영상의 실제 usage만큼 차감
+# ponytail: 잔량은 결제 콘솔(제어 영역) 정보라 API 키로는 못 읽음. 앱 밖에서 쓴 양은 설정에서 다시 맞춰야 함
+def spend(model, usage):
+    t = (usage or {}).get("total_tokens") or (usage or {}).get("completion_tokens")
+    if model != SD["sd25"] or not t:
+        return
+    with _cfg_lock:
+        c = load_cfg()
+        if c.get("pack_left") is None:
+            return
+        c["pack_left"] = max(0, c["pack_left"] - t / 1000)
+        save_cfg(c)
 
 
 # ---- 공용 ----
@@ -137,6 +153,7 @@ def ark_run(key, body, stem):
             if transient(e): continue
             raise
         if r["status"] == "succeeded":
+            spend(body["model"], r.get("usage"))
             return download(r["content"]["video_url"], uniq(stem, ".mp4")), tid
         if r["status"] in ("failed", "cancelled", "expired"):
             er = r.get("error") or {}
@@ -198,15 +215,20 @@ class Api:
     def get_settings(self):
         c = load_cfg()
         return {"ark": bool(c.get("ark_key")), "google": bool(c.get("google_key")),
-                "veo_model": c.get("veo_model") or VEO_DEFAULT, "out": OUT}
+                "veo_model": c.get("veo_model") or VEO_DEFAULT, "out": OUT, "pack": {k: c.get(k) for k in PACK}}
 
-    def save_settings(self, ark, google, veo_model, clear):
-        c = load_cfg()
-        if ark: c["ark_key"] = ark.strip()
-        if google: c["google_key"] = google.strip()
-        for k in clear: c.pop(k, None)
-        c["veo_model"] = veo_model.strip() or VEO_DEFAULT
-        save_cfg(c)
+    def save_settings(self, ark, google, veo_model, clear, pack=None):
+        with _cfg_lock:
+            c = load_cfg()
+            if ark: c["ark_key"] = ark.strip()
+            if google: c["google_key"] = google.strip()
+            for k in clear: c.pop(k, None)
+            c["veo_model"] = veo_model.strip() or VEO_DEFAULT
+            for k, v in (pack or {}).items():
+                if k not in PACK: continue
+                if v in ("", None): c.pop(k, None)
+                else: c[k] = v
+            save_cfg(c)
         return self.get_settings()
 
     def generate(self, o):
